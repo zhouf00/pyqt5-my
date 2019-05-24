@@ -1,12 +1,14 @@
 import sys
 import time
-import pyqtgraph as pg
+import sip
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QGridLayout,
                              QHBoxLayout, QVBoxLayout,QLabel, QComboBox,QPushButton,
                              QDateEdit, QSpacerItem,QFrame, QSizePolicy, QSplitter,
                              QRadioButton, QGroupBox,QCheckBox,QLineEdit, QAction)
 from PyQt5.QtCore import Qt, QDate, QRect
 from TmpData import *
+from Mythreading import *
+from pyqt5_graph import *
 
 
 class Qt_Test_Frame(QMainWindow):
@@ -36,6 +38,8 @@ class Qt_Test_Frame(QMainWindow):
         v4_wlayout = QVBoxLayout()
         v5_wlayout = QVBoxLayout()
 
+        self.statusBar().showMessage("状态栏")
+
         # 第一层
         self._frist_story(h1_wlayout)
 
@@ -43,12 +47,11 @@ class Qt_Test_Frame(QMainWindow):
         self._second_story(h2_wlayout)
 
         # 第三层 左
-        self._third_left(v4_wlayout)
+        self._third_left(v4_wlayout, v5_wlayout)
 
         # 第三层 右
-        pass
+        self._fouth_right(v5_wlayout)
 
-        self.statusBar().showMessage("abc")
         # 加载
         splt = self._my_line()
         splt2 = self._my_line(False)
@@ -70,9 +73,11 @@ class Qt_Test_Frame(QMainWindow):
         self.setCentralWidget(wwg)
 
     def _frist_story(self, h1_wlayout):
+        # 第一层布局
         self.h1_combox1 = QComboBox(minimumWidth=100)
         self.h1_combox1.addItems(wind_field)
         self.h1_combox2 = QComboBox(minimumWidth=100)
+        self.h1_combox2.addItems(wind_mach_chooice(self.h1_combox1.currentText()))
         self.h1_combox3 = QComboBox(minimumWidth=100)
         self.h1_combox3.addItems(wind_blade)
         self.h1_combox4 = QComboBox(minimumWidth=100)
@@ -98,12 +103,17 @@ class Qt_Test_Frame(QMainWindow):
 
         h1_wlayout.setAlignment(Qt.AlignLeft)
 
+        # 事件绑定
+        self.h1_combox1.currentIndexChanged.connect(self._wind_chooice)
+
     def _second_story(self, h2_wlayout):
+        # 第二层布局
         self.h2_date1 = QDateEdit(QDate.currentDate())
         self.h2_date1.setCalendarPopup(True)
         self.h2_date2 = QDateEdit(QDate.currentDate())
         self.h2_date2.setCalendarPopup(True)
         self.h2_button = QPushButton("运行")
+        self.h2_button2 = QPushButton("停止")
 
         h2_wlayout.addItem(QSpacerItem(20, 20))
         h2_wlayout.addWidget(QLabel("起始"),0)
@@ -113,13 +123,16 @@ class Qt_Test_Frame(QMainWindow):
         h2_wlayout.addWidget(self.h2_date2)
         h2_wlayout.addItem(QSpacerItem(70, 20))
         h2_wlayout.addWidget(self.h2_button)
+        h2_wlayout.addWidget(self.h2_button2)
 
         h2_wlayout.setAlignment(Qt.AlignLeft)
 
         # 事件绑定
-        self.h2_button.clicked.connect(lambda: self._print())
+        self.h2_button.clicked.connect(lambda: self._start_func())
+        self.h2_button2.clicked.connect(lambda: self._stop_func())
 
-    def _third_left(self,v4_wlayout):
+    def _third_left(self, v4_wlayout, v5_wlayout):
+        # 第三层布局
         # 分量布局
         v4_group_imf = QGridLayout()
         vbox1 = QGroupBox("分量值")
@@ -141,12 +154,13 @@ class Qt_Test_Frame(QMainWindow):
         cb1 = QCheckBox("叶片1")
         cb2 = QCheckBox("叶片2")
         cb3 = QCheckBox("叶片3")
-        self.v3_lineEdit = QLineEdit()
+        self.v4_lineEdit = QLineEdit()
 
         # 时间布局
         v4_group_time = QGridLayout()
         vbox3 = QGroupBox("时间选择")
         self.v4_combox1 = QComboBox(minimumWidth=100)
+        self.v4_combox1.addItem("空")
 
         # 按键
         v4_button = QPushButton("显示图形")
@@ -166,7 +180,7 @@ class Qt_Test_Frame(QMainWindow):
         v4_group_prior.addWidget(cb2, 2, 0)
         v4_group_prior.addWidget(cb3, 3, 0)
         v4_group_prior.addWidget(QLabel("选择是："),4,0)
-        v4_group_prior.addWidget(self.v3_lineEdit, 5, 0)
+        v4_group_prior.addWidget(self.v4_lineEdit, 5, 0)
 
         v4_group_time.addWidget(self.v4_combox1)
 
@@ -174,10 +188,15 @@ class Qt_Test_Frame(QMainWindow):
         vbox1.setLayout(v4_group_imf)
         vbox2.setLayout(v4_group_prior)
         vbox3.setLayout(v4_group_time)
+        v4_wlayout.addItem(QSpacerItem(50, 20))
         v4_wlayout.addWidget(vbox1)
+        v4_wlayout.addItem(QSpacerItem(50, 20))
         v4_wlayout.addWidget(vbox2)
-        v4_wlayout.addWidget(vbox3, 0)
-        v4_wlayout.addWidget(v4_button,1)
+        v4_wlayout.addItem(QSpacerItem(50, 20))
+        v4_wlayout.addWidget(vbox3)
+        v4_wlayout.addItem(QSpacerItem(50, 20))
+        v4_wlayout.addWidget(v4_button)
+        v4_wlayout.addItem(QSpacerItem(50, 20))
 
         # 事件绑定
         self.radio_1.toggled.connect(lambda: self._changestyle(self.radio_1))
@@ -194,7 +213,12 @@ class Qt_Test_Frame(QMainWindow):
         cb2.stateChanged.connect(lambda: self._prior_func(cb2))
         cb3.stateChanged.connect(lambda: self._prior_func(cb3))
 
-        v4_button.clicked.connect(lambda: self._show_func())
+        v4_button.clicked.connect(lambda: self._show_func(v5_wlayout))
+
+    def _fouth_right(self, v5_wlayout):
+        # 加载波形图
+        self.tmp_plt = plt_init()
+        v5_wlayout.addWidget(self.tmp_plt)
 
     def _my_line(self, var=True):
         # var 为True时，为横线，否则为竖线
@@ -210,19 +234,39 @@ class Qt_Test_Frame(QMainWindow):
         splitter.addWidget(line)
         return splitter
 
-    def _print(self):
+    def _wind_chooice(self):
+        tmp_list = wind_mach_chooice(self.h1_combox1.currentText())
+        self.h1_combox2.clear()
+        self.h1_combox2.addItems(tmp_list)
+
+    def _start_func(self):
         a = self.h1_combox1.currentText()
         b = self.h1_combox2.currentText()
         c = self.h1_combox3.currentText()
         d = self.h1_combox4.currentText()
         e = self.h2_date1.dateTime().toString("yy-MM-dd")
         f = self.h2_date2.dateTime().toString("yy-MM-dd")
+        self.start_func = RunThread(target=self._start_thread, args=(a, b, c, d, e, f))
+        #self.start_func = MyThread(target=self._print, args=(a, b, c, d, e, f))
+        self.start_func.start()
+
+    def _stop_func(self):
+        self.start_func.stop()
+        print("运行结束")
+
+    def _start_thread(self, a, b, c, d, e, f):
+        print("*****运行打印*****")
+        print(wind_mach_chooice(a))
         print(a,b,c,d)
         print(e)
         print(f)
-        print(self.radio_val)
+        print("%s" % (time.strftime('<%H:%M:%S>', time.localtime())))
+        self.v4_combox1.clear()
+        self.v4_combox1.addItems(tmp_time_list)
+        print("*****运行打印*****")
 
     def _changestyle(self, btn):
+        # 单选项的判断函数
         if btn.isChecked():
             self.radio_val = btn.text()
         #print("%s"%(time.strftime('<%H:%M:%S>', time.localtime())))
@@ -230,18 +274,25 @@ class Qt_Test_Frame(QMainWindow):
     def _prior_func(self, cb):
         # 复选框内容添加
         if cb.isChecked():
-            if cb.text() not in self.Items:
-                self.Items.append(cb.text())
+            if cb.text()[-1] not in self.Items:
+                self.Items.append(cb.text()[-1])
             shop_cart= ",".join(self.Items)
-            self.v3_lineEdit.setText(shop_cart)
+            self.v4_lineEdit.setText(shop_cart)
         else:
-            if cb.text() in self.Items:
-                self.Items.remove(cb.text())
+            if cb.text()[-1] in self.Items:
+                self.Items.remove(cb.text()[-1])
             shop_cart = ",".join(self.Items)
-            self.v3_lineEdit.setText(shop_cart)
+            self.v4_lineEdit.setText(shop_cart)
 
-    def _show_func(self):
-        print(self.v3_lineEdit.text())
+    def _show_func(self, v5_wlayout):
+        print("*****显示打印*****")
+        print(self.radio_val)
+        num = self.v4_lineEdit.text()
+        print(self.v4_combox1.currentText())
+        v5_wlayout.removeWidget(self.tmp_plt)
+        self.tmp_plt = plt_show(num)
+        v5_wlayout.addWidget(self.tmp_plt)
+        print("*****显示打印*****")
 
 
 if __name__ == '__main__':
